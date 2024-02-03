@@ -1,0 +1,212 @@
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
+
+typedef struct {
+    int row;
+    int col;
+    int dist;
+} QItem;
+
+QItem createQItem(int x, int y, int w) {
+    QItem item;
+    item.row = x;
+    item.col = y;
+    item.dist = w;
+    return item;
+}
+
+// Define a structure to represent a step in the path
+typedef struct {
+    char direction;
+    int row;
+    int col;
+} PathStep;
+
+PathStep createPathStep(char dir, int x, int y) {
+    PathStep step;
+    step.direction = dir;
+    step.row = x;
+    step.col = y;
+    return step;
+}
+
+void printPath(PathStep* path, int length) {
+    printf("Path: ");
+    for (int i = length - 1; i >= 0; i--) {
+        printf("%c ", path[i].direction);
+    }
+    printf("\n");
+}
+
+int minDistance(int rows, int cols, char** grid, PathStep* path) {
+    QItem source = {0, 0, 0};
+
+    // To keep track of visited QItems. Marking
+    // blocked cells as visited.
+    bool** visited = (bool**)malloc(rows * sizeof(bool*));
+    for (int i = 0; i < rows; i++) {
+        visited[i] = (bool*)malloc(cols * sizeof(bool));
+        for (int j = 0; j < cols; j++) {
+            visited[i][j] = false;
+
+            // Finding the source
+            if (grid[i][j] == 's') {
+                source.row = i;
+                source.col = j;
+            }
+        }
+    }perror("hi");
+
+    // Applying BFS on matrix cells starting from the source
+    QItem* queue = (QItem*)malloc(rows * cols * sizeof(QItem));
+    int front = 0, rear = 0;
+    queue[rear++] = source;
+    visited[source.row][source.col] = true;
+
+    while (front < rear) {
+        QItem p = queue[front++];
+
+        // Destination found
+        if (grid[p.row][p.col] == 'd') {
+            // Build and store the path
+            int pathLength = p.dist + 1;
+            path[pathLength - 1] = createPathStep('\0', p.row, p.col);
+
+            int currentRow = p.row;
+            int currentCol = p.col;
+            // Backtrack to reconstruct the path
+            for (int i = pathLength - 2; i >= 0; i--) {
+                if (currentRow - 1 >= 0 && p.dist - 1 == visited[currentRow - 1][currentCol]) {
+                    path[i] = createPathStep('U', currentRow - 1, currentCol);
+                    currentRow = currentRow - 1;
+                } else if (currentRow + 1 < rows && p.dist - 1 == visited[currentRow + 1][currentCol]) {
+                    path[i] = createPathStep('D', currentRow + 1, currentCol);
+                    currentRow = currentRow + 1;
+                } else if (currentCol - 1 >= 0 && p.dist - 1 == visited[currentRow][currentCol - 1]) {
+                    path[i] = createPathStep('L', currentRow, currentCol - 1);
+                    currentCol = currentCol - 1;
+                } else if (currentCol + 1 < cols && p.dist - 1 == visited[currentRow][currentCol + 1]) {
+                    path[i] = createPathStep('R', currentRow, currentCol + 1);
+                    currentCol = currentCol + 1;
+                }
+            }
+            // Free allocated memory for visited and queue
+            for (int i = 0; i < rows; i++) {
+                free(visited[i]);
+            }
+            free(visited);
+            free(queue);
+
+            return pathLength;
+        }
+        // Moving up
+        if (p.row - 1 >= 0 && !visited[p.row - 1][p.col]) {
+            queue[rear++] = createQItem(p.row - 1, p.col, p.dist + 1);
+            visited[p.row - 1][p.col] = p.dist;
+        }
+
+        // Moving down
+        if (p.row + 1 < rows && !visited[p.row + 1][p.col]) {
+            queue[rear++] = createQItem(p.row + 1, p.col, p.dist + 1);
+            visited[p.row + 1][p.col] = p.dist;
+        }
+
+        // Moving left
+        if (p.col - 1 >= 0 && !visited[p.row][p.col - 1]) {
+            queue[rear++] = createQItem(p.row, p.col - 1, p.dist + 1);
+            visited[p.row][p.col - 1] = p.dist;
+        }
+
+        // Moving right
+        if (p.col + 1 < cols && !visited[p.row][p.col + 1]) {
+            queue[rear++] = createQItem(p.row, p.col + 1, p.dist + 1);
+            visited[p.row][p.col + 1] = p.dist;
+        }
+    }
+    // Free allocated memory for visited and queue
+    for (int i = 0; i < rows; i++) {
+        free(visited[i]);
+        
+    }
+    free(visited);
+    free(queue);
+    return -1; // No path found
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <input_file>\n", argv[0]);
+        return 1;
+    }
+
+    FILE* file = fopen(argv[1], "r");
+    if (!file) {
+        fprintf(stderr, "Error opening file\n");
+        return 1;
+    }
+
+    int rows, cols;
+    if (fscanf(file, "%d", &rows) != 1) {
+        fprintf(stderr, "Error reading input\n");
+        fclose(file);
+        return 1;
+    }
+    cols = rows;
+
+    int zomba_x, zomba_y, zomba_target_x, zomba_target_y;
+    if (fscanf(file, "%d %d %d %d", &zomba_x, &zomba_y, &zomba_target_x, &zomba_target_y) != 4) {
+        fprintf(stderr, "Error reading input\n");
+        fclose(file);
+        return 1;
+    }
+
+    char** grid = (char**)malloc(rows * sizeof(char*));
+    for (int i = 0; i < rows; i++) {
+        grid[i] = (char*)malloc(cols * sizeof(char));
+        for (int j = 0; j < cols; j++) {
+            if (fscanf(file, " %c", &grid[i][j]) != 1) {
+                fprintf(stderr, "Error reading input\n");
+                fclose(file);
+
+                // Free allocated memory for grid
+                for (int i = 0; i < rows; i++) {
+                    free(grid[i]);
+                }
+                free(grid);
+
+                return 1;
+            }
+        }
+    }
+
+    fclose(file);
+
+    // Update the source 's' and destination 'd'
+    grid[zomba_x][zomba_y] = 's';
+    grid[zomba_target_x][zomba_target_y] = 'd';
+
+    // Allocate memory for the path
+    PathStep* path = (PathStep*)malloc(rows * cols * sizeof(PathStep));
+
+    int pathLength = minDistance(rows, cols, grid, path);
+    if (pathLength > 0) {
+        printPath(path, pathLength);
+    } else {
+        printf("No path found.\n");
+    }
+
+
+    
+
+
+
+    // Free allocated memory for grid and path
+    for (int i = 0; i < rows; i++) {
+        free(grid[i]);
+    }
+    free(grid);
+    free(path);
+
+    return 0;
+}
